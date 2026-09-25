@@ -3,16 +3,8 @@ import pandas as pd
 import pytest
 
 from ai.src.anomaly_detection import AnomalyDetector
+from ai.src.degradation import DegradationAnalyzer, WarningLevel
 from ai.src.inference import InferenceResult, VibrationInferenceEngine
-
-
-FEATURES = [
-    "RMS",
-    "Peak",
-    "Std",
-    "Kurtosis",
-    "Dominant_Frequency",
-]
 
 
 def make_healthy_data(
@@ -78,6 +70,24 @@ def test_engine_returns_inference_result(
     assert isinstance(result, InferenceResult)
     assert len(result.anomaly.labels) == 10
     assert len(result.anomaly.scores) == 10
+    assert result.degradation is not None
+
+
+def test_degradation_result_is_returned(
+    trained_engine: VibrationInferenceEngine,
+) -> None:
+    healthy = make_healthy_data(rows=10)
+
+    result = trained_engine.predict(healthy)
+
+    assert result.degradation.current_score == pytest.approx(
+        result.anomaly.scores[-1]
+    )
+
+    assert isinstance(
+        result.degradation.warning_level,
+        WarningLevel,
+    )
 
 
 def test_anomaly_ratio_is_valid(
@@ -109,3 +119,74 @@ def test_anomalous_data_can_reach_inference_layer(
 
     assert len(result.anomaly.labels) == 10
     assert len(result.anomaly.scores) == 10
+    assert result.degradation is not None
+
+
+def test_score_history_accumulates(
+    trained_engine: VibrationInferenceEngine,
+) -> None:
+    healthy = make_healthy_data(rows=10)
+
+    trained_engine.predict(healthy)
+    trained_engine.predict(healthy)
+
+    assert len(trained_engine.score_history) == 20
+
+
+def test_score_history_is_read_only(
+    trained_engine: VibrationInferenceEngine,
+) -> None:
+    healthy = make_healthy_data(rows=10)
+
+    trained_engine.predict(healthy)
+
+    history = trained_engine.score_history
+
+    assert isinstance(history, tuple)
+    assert len(history) == 10
+
+
+def test_reset_history(
+    trained_engine: VibrationInferenceEngine,
+) -> None:
+    healthy = make_healthy_data(rows=10)
+
+    trained_engine.predict(healthy)
+
+    assert len(trained_engine.score_history) == 10
+
+    trained_engine.reset_history()
+
+    assert len(trained_engine.score_history) == 0
+
+
+def test_custom_degradation_analyzer(
+    trained_engine: VibrationInferenceEngine,
+) -> None:
+    analyzer = DegradationAnalyzer(
+        moving_average_window=3,
+    )
+
+    detector = trained_engine.anomaly_detector
+
+    engine = VibrationInferenceEngine(
+        detector,
+        degradation_analyzer=analyzer,
+    )
+
+    healthy = make_healthy_data(rows=10)
+
+    result = engine.predict(healthy)
+
+    assert result.degradation is not None
+    assert len(engine.score_history) == 10
+
+
+def test_invalid_degradation_analyzer() -> None:
+    detector = AnomalyDetector()
+
+    with pytest.raises(TypeError):
+        VibrationInferenceEngine(
+            detector,
+            degradation_analyzer="invalid",
+        )
