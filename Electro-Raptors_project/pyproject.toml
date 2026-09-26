@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "signal-pipeline"
+version = "0.1.0"
+description = "CSV and ESP32 sensor signal processing pipeline"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "pyserial>=3.5",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[project.scripts]
+signal-pipeline = "signal_pipeline.cli:main"
+signal-train = "signal_pipeline.train_cli:main"
+signal-predict = "signal_pipeline.predict_cli:main"
+signal-serial = "signal_pipeline.serial_cli:main"
+signal-demo = "signal_pipeline.demo_cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["signal_pipeline*"]

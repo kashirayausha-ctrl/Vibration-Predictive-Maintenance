@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Motor Signal Console</title>
+  <style>
+    :root { --ink:#17212b; --muted:#65717b; --paper:#f4f1e9; --panel:#fffdf8; --line:#d9d4c8; --teal:#0d7770; --rust:#c45a3c; --gold:#d9a441; --green:#2e8b68; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:radial-gradient(circle at 15% 0%, #fff8df 0, transparent 33%), var(--paper); font-family:"Trebuchet MS", Verdana, sans-serif; }
+    main { width:min(1180px, calc(100% - 36px)); margin:0 auto; padding:38px 0 48px; }
+    header { display:flex; justify-content:space-between; gap:24px; align-items:end; border-bottom:2px solid var(--ink); padding-bottom:22px; }
+    h1 { margin:0; font-size:clamp(2rem, 5vw, 4.5rem); line-height:.94; letter-spacing:0; max-width:650px; }
+    .meta { color:var(--muted); text-align:right; font-size:.8rem; line-height:1.7; }
+    .grid { display:grid; grid-template-columns:1.25fr .75fr; gap:16px; margin-top:18px; }
+    .panel { background:color-mix(in srgb, var(--panel) 92%, transparent); border:1px solid var(--line); padding:20px; box-shadow:6px 6px 0 #e5dfd2; }
+    .wide { grid-column:1 / -1; }
+    .eyebrow { color:var(--teal); font-size:.72rem; font-weight:bold; letter-spacing:.12em; text-transform:uppercase; }
+    h2 { font-size:1.05rem; margin:6px 0 18px; }
+    .hero { display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:center; }
+    .status { display:flex; gap:14px; align-items:center; }
+    .dot { width:18px; height:18px; border-radius:50%; background:var(--gold); box-shadow:0 0 0 8px #f6e6bc; }
+    .dot.normal { background:var(--green); box-shadow:0 0 0 8px #d8eee3; }
+    .dot.attention { background:var(--rust); box-shadow:0 0 0 8px #f4ddd5; }
+    .status strong { display:block; font-size:2rem; }
+    .status small { color:var(--muted); }
+    .metrics { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; }
+    .metric { border-top:3px solid var(--teal); padding-top:9px; }
+    .metric b { display:block; font-size:1.45rem; margin-top:5px; }
+    .metric span { color:var(--muted); font-size:.75rem; }
+    .bar-chart { height:170px; display:flex; align-items:end; gap:4px; border-bottom:1px solid var(--line); padding:12px 0 0; }
+    .bar { min-width:4px; flex:1; background:var(--teal); opacity:.78; transform-origin:bottom; animation:rise .5s ease both; }
+    @keyframes rise { from { transform:scaleY(0); } to { transform:scaleY(1); } }
+    .validation { display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; }
+    .check { padding:12px; background:#f2eee5; }
+    .check b { display:block; font-size:1.2rem; margin-top:4px; }
+    .good { color:var(--green); } .bad { color:var(--rust); }
+    table { width:100%; border-collapse:collapse; font-size:.82rem; }
+    th, td { padding:10px 8px; border-bottom:1px solid var(--line); text-align:left; }
+    th { color:var(--muted); font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; }
+    .pill { display:inline-block; padding:4px 8px; background:#e8eee9; color:var(--green); font-size:.72rem; font-weight:bold; }
+    .pill.attention { background:#f5e2db; color:var(--rust); }
+    footer { color:var(--muted); margin-top:22px; font-size:.75rem; }
+    @media (max-width:760px) { main { width:min(100% - 22px, 600px); padding-top:24px; } header, .hero { display:block; } .meta { text-align:left; margin-top:16px; } .grid { grid-template-columns:1fr; } .wide { grid-column:auto; } .validation { grid-template-columns:repeat(2,1fr); } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Motor signal<br>console</h1>
+      <div class="meta"><div id="source">Connecting to backend...</div><div id="updated"></div></div>
+    </header>
+    <section class="grid">
+      <article class="panel hero">
+        <div><div class="eyebrow">Current condition</div><div class="status"><i class="dot" id="dot"></i><div><strong id="status">--</strong><small id="prediction">Waiting for backend data</small></div></div></div>
+        <div class="metrics"><div class="metric"><span>Vibration RMS</span><b id="rms">--</b></div><div class="metric"><span>Dominant frequency</span><b id="frequency">--</b></div></div>
+      </article>
+      <article class="panel"><div class="eyebrow">Dataset validation</div><h2>Data quality and evaluation</h2><div class="validation"><div class="check"><span>Rows</span><b id="rows">--</b></div><div class="check"><span>Features</span><b id="features">--</b></div><div class="check"><span>Missing</span><b id="missing">--</b></div><div class="check"><span>Accuracy</span><b id="accuracy">--</b></div></div></article>
+      <article class="panel"><div class="eyebrow">AI inference</div><h2>Machine health signals</h2><div class="validation"><div class="check"><span>Anomaly ratio</span><b id="anomaly">--</b></div><div class="check"><span>Warning</span><b id="warning">--</b></div><div class="check"><span>Degrading</span><b id="degrading">--</b></div><div class="check"><span>Trend slope</span><b id="slope">--</b></div></div></article>
+      <article class="panel wide"><div class="eyebrow">Signal history</div><h2>Recent RMS windows</h2><div class="bar-chart" id="chart"></div></article>
+      <article class="panel wide"><div class="eyebrow">Window feed</div><h2>Latest backend results</h2><table><thead><tr><th>Window</th><th>Time</th><th>Prediction</th><th>RMS</th><th>Frequency</th></tr></thead><tbody id="feed"></tbody></table></article>
+    </section>
+    <footer>Automatic view of generated backend artifacts. Refresh interval: 2 seconds.</footer>
+  </main>
+  <script>
+    const text = (id, value) => document.getElementById(id).textContent = value;
+    const format = (value, digits = 2) => value == null ? "--" : Number(value).toFixed(digits);
+    function render(state) {
+      const health = state.health || {}; const validation = state.validation || {};
+      const ai = state.ai || {};
+      text("source", `${state.source || "No backend artifact"} · ${state.sensor || "no sensor"}`);
+      text("updated", state.updated_at ? `Updated ${new Date(state.updated_at * 1000).toLocaleTimeString()}` : "Awaiting data");
+      text("status", health.status || "UNKNOWN"); text("prediction", health.prediction || "NO DATA");
+      text("rms", format(health.rms)); text("frequency", health.frequency == null ? "--" : `${format(health.frequency)} Hz`);
+      text("rows", validation.row_count ?? "--"); text("features", validation.feature_count ?? "--"); text("missing", validation.missing_values ?? "--");
+      text("accuracy", validation.accuracy == null ? "N/A" : `${(validation.accuracy * 100).toFixed(1)}%`);
+      text("anomaly", ai.anomaly_ratio == null ? "N/A" : `${(ai.anomaly_ratio * 100).toFixed(1)}%`);
+      text("warning", ai.warning_level || "N/A"); text("degrading", ai.is_degrading == null ? "N/A" : (ai.is_degrading ? "YES" : "NO"));
+      text("slope", format(ai.trend_slope, 4));
+      const dot = document.getElementById("dot"); dot.className = `dot ${(health.status || "").toLowerCase()}`;
+      const trend = state.trend || []; const max = Math.max(...trend.map(item => item.rms || 0), 1); const chart = document.getElementById("chart"); chart.replaceChildren();
+      trend.forEach((item, index) => { const bar = document.createElement("div"); bar.className = "bar"; bar.title = `Window ${item.window}: ${format(item.rms)}`; bar.style.height = `${Math.max(3, (item.rms || 0) / max * 100)}%`; bar.style.animationDelay = `${index * 20}ms`; chart.appendChild(bar); });
+      const feed = document.getElementById("feed"); feed.replaceChildren();
+      (state.recent || []).forEach(item => { const row = document.createElement("tr"); const attention = ["ATTENTION", "UNKNOWN"].includes(item.prediction); row.innerHTML = `<td>${item.window ?? "--"}</td><td>${item.timestamp || "--"}</td><td><span class="pill ${attention ? "attention" : ""}">${item.prediction || "--"}</span></td><td>${format(item.rms)}</td><td>${item.frequency == null ? "--" : `${format(item.frequency)} Hz`}</td>`; feed.appendChild(row); });
+    }
+    async function refresh() { try { const response = await fetch("/api/state", { cache: "no-store" }); render(await response.json()); } catch (error) { text("source", "Backend unavailable"); text("updated", "Retrying..."); } }
+    refresh(); setInterval(refresh, 2000);
+  </script>
+</body>
+</html>
